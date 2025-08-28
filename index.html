@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>8-Question Interview</title>
+  <style>
+    :root{--bg:#0b1020;--card:#0f172a;--text:#e6edf3;--muted:#9aa4b2;--accent:#22d3ee;--accent2:#0ea5e9;--ring:rgba(34,211,238,.35)}
+    *{box-sizing:border-box} html,body{height:100%}
+    body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:radial-gradient(900px 600px at 120% -10%,rgba(34,211,238,.12),transparent 60%),radial-gradient(900px 600px at -10% 120%,rgba(14,165,233,.12),transparent 60%),var(--bg);color:var(--text);display:grid;place-items:center;padding:24px}
+    .wrap{width:min(900px,100%)} header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+    h1{margin:0;font-size:clamp(22px,4vw,30px)} .chip{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.15);color:var(--accent)}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.12);border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.35);padding:22px}
+    .muted{color:var(--muted)} .progress{height:10px;background:rgba(255,255,255,.08);border-radius:999px;overflow:hidden;margin:6px 0 16px 0;border:1px solid rgba(255,255,255,.12)} .bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%}
+    label{display:block;font-weight:700;margin:4px 0 8px 0}
+    input[type=text],textarea,select{width:100%;background:rgba(255,255,255,.06);color:var(--text);border:1px solid rgba(255,255,255,.18);border-radius:12px;padding:12px;font-size:16px;outline:none}
+    input:focus,textarea:focus,select:focus{box-shadow:0 0 0 4px var(--ring);border-color:transparent} textarea{min-height:120px;resize:vertical}
+    .choices{display:grid;gap:10px}.choice{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.04)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px} .spacer{flex:1 1 auto}
+    button{cursor:pointer;border-radius:12px;padding:12px 16px;font-weight:700;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:var(--text)}
+    button.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#001018;border:none} button:disabled{opacity:.6;cursor:not-allowed}
+    .small{font-size:12px} .summary{display:grid;gap:10px} .answer{padding:12px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1 id="title">8-Question Interview</h1>
+      <span class="chip">GitHub Pages-ready</span>
+    </header>
+
+    <div class="card">
+      <div class="muted" id="progressText">Question 1 of 8</div>
+      <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
+
+      <form id="form" novalidate>
+        <label id="label" for="field">—</label>
+        <div id="inputMount"></div>
+        <div class="row">
+          <button type="button" id="backBtn">← Back</button>
+          <div class="spacer"></div>
+          <button type="button" id="saveBtn">Save draft</button>
+          <button type="submit" class="primary" id="nextBtn">Next →</button>
+        </div>
+        <div class="row small muted"><span>Press <strong>Enter</strong> to go next. Draft saves locally.</span></div>
+      </form>
+
+      <div id="summary" class="summary" hidden>
+        <h2 style="margin:0 0 8px 0">All done 🎉</h2>
+        <div id="answers"></div>
+        <div class="row">
+          <button id="copyBtn">Copy answers</button>
+          <button id="downloadBtn">Download JSON</button>
+          <div class="spacer"></div>
+          <button id="restartBtn" class="primary">Start over</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Your customizable CONFIG -->
+  <script>
+  const CONFIG = {
+    title: "8-Question Interview",
+    questions: [
+      { id: 1, prompt: "What’s your name?",            type: "short",  required: true  },
+      { id: 2, prompt: "How can I contact you?",       type: "short",  required: false },
+      { id: 3, prompt: "What’s something…?",           type: "long",   required: true  },
+      { id: 4, prompt: "What are you learning?",       type: "long",   required: false },
+      { id: 5, prompt: "Pick a color:",                type: "choice", options: ["Red","Blue","Green"], required: false },
+      { id: 6, prompt: "What motivates you?",          type: "long",   required: false },
+      { id: 7, prompt: "Song you love right now?",     type: "short",  required: false },
+      { id: 8, prompt: "Anything else?",               type: "long",   required: false }
+    ]
+  };
+  </script>
+
+  <!-- App logic that reads CONFIG and renders the site -->
+  <script>
+    const $ = s => document.querySelector(s);
+    const titleEl = $('#title'), labelEl = $('#label'), inputMount = $('#inputMount');
+    const form = $('#form'), bar = $('#bar'), progressText = $('#progressText');
+    const backBtn = $('#backBtn'), nextBtn = $('#nextBtn'), saveBtn = $('#saveBtn');
+    const summary = $('#summary'), answersWrap = $('#answers');
+    const copyBtn = $('#copyBtn'), downloadBtn = $('#downloadBtn'), restartBtn = $('#restartBtn');
+
+    const LS_KEY = 'eightQ:v1';
+    let step = 0, answers = {};
+    const total = CONFIG.questions.length;
+
+    // restore draft
+    try {
+      const st = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+      if (st.answers) answers = st.answers;
+      if (Number.isInteger(st.step)) step = Math.min(st.step, total - 1);
+    } catch {}
+
+    titleEl.textContent = CONFIG.title || '8-Question Interview';
+
+    function saveDraft(){ localStorage.setItem(LS_KEY, JSON.stringify({step, answers})); }
+    function fieldId(q){ return `q_${q.id}`; }
+    function updateProgress(){
+      const pct = Math.round((step / total) * 100);
+      bar.style.width = Math.max(8, pct) + '%';
+      progressText.textContent = `Question ${Math.min(step+1,total)} of ${total}`;
+      backBtn.disabled = step === 0;
+      nextBtn.textContent = step === total - 1 ? 'Submit' : 'Next →';
+    }
+
+    function renderQuestion(){
+      summary.hidden = true; form.hidden = false; inputMount.innerHTML = '';
+      const q = CONFIG.questions[step];
+      labelEl.textContent = q.prompt + (q.required ? ' *' : '');
+
+      let field;
+      if (q.type === 'long') {
+        field = document.createElement('textarea');
+      } else if (q.type === 'choice') {
+        const wrap = document.createElement('div'); wrap.className = 'choices';
+        (q.options || []).forEach(opt => {
+          const row = document.createElement('label'); row.className = 'choice';
+          const radio = document.createElement('input'); radio.type = 'radio'; radio.name = fieldId(q); radio.value = opt;
+          const span = document.createElement('span'); span.textContent = opt;
+          row.appendChild(radio); row.appendChild(span); wrap.appendChild(row);
+        });
+        inputMount.appendChild(wrap);
+      } else {
+        field = document.createElement('input'); field.type = 'text';
+      }
+
+      if (field) {
+        field.id = 'field'; field.name = fieldId(q); field.placeholder = 'Type your answer…';
+        inputMount.appendChild(field); field.focus({preventScroll:true});
+      }
+
+      // restore existing value
+      const prev = answers[q.id];
+      if (prev != null) {
+        if (q.type === 'choice') {
+          [...inputMount.querySelectorAll('input[type=radio]')].forEach(r => r.checked = (r.value === prev));
+        } else {
+          const f = $('#field'); if (f) f.value = prev;
+        }
+      }
+      updateProgress();
+    }
+
+    function getValue(){
+      const q = CONFIG.questions[step];
+      if (q.type === 'choice') {
+        const r = inputMount.querySelector('input[type=radio]:checked');
+        return r ? r.value : '';
+      }
+      const f = $('#field'); return f ? f.value.trim() : '';
+    }
+
+    function validate(){
+      const q = CONFIG.questions[step];
+      const val = getValue();
+      if (q.required && !val) { inputMount.scrollIntoView({behavior:'smooth',block:'center'}); return false; }
+      return true;
+    }
+
+    function next(){
+      if (!validate()) return;
+      const q = CONFIG.questions[step];
+      answers[q.id] = getValue(); saveDraft();
+      if (step < total - 1) { step++; renderQuestion(); }
+      else { showSummary(); }
+    }
+    function back(){ if (step > 0) { step--; renderQuestion(); saveDraft(); } }
+
+    function showSummary(){
+      const q = CONFIG.questions[step]; answers[q.id] = getValue(); saveDraft();
+      form.hidden = true; summary.hidden = false; answersWrap.innerHTML = '';
+      CONFIG.questions.forEach((q,i)=>{
+        const div = document.createElement('div'); div.className='answer';
+        const h = document.createElement('div'); h.style.fontWeight='700'; h.textContent = `${i+1}. ${q.prompt}`;
+        const p = document.createElement('div'); p.style.whiteSpace='pre-wrap'; p.style.marginTop='6px';
+        const val = answers[q.id] ?? ''; p.textContent = val === '' ? '— (no answer)' : String(val);
+        div.appendChild(h); div.appendChild(p); answersWrap.appendChild(div);
+      });
+    }
+
+    function copyAnswers(){
+      const lines = CONFIG.questions.map((q,i)=>`${i+1}. ${q.prompt}\n${answers[q.id] ?? ''}`);
+      navigator.clipboard.writeText(lines.join('\n\n'));
+    }
+    function downloadJSON(){
+      const payload = { title: CONFIG.title, submittedAt: new Date().toISOString(), answers };
+      const blob = new Blob([JSON.stringify(payload,null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob); const a = document.createElement('a');
+      a.href = url; a.download = 'answers.json'; a.click(); URL.revokeObjectURL(url);
+    }
+    function restart(){ step = 0; answers = {}; saveDraft(); renderQuestion(); }
+
+    form.addEventListener('submit', e => { e.preventDefault(); next(); });
+    backBtn.addEventListener('click', back);
+    saveBtn.addEventListener('click', ()=>saveDraft());
+    copyBtn.addEventListener('click', copyAnswers);
+    downloadBtn.addEventListener('click', downloadJSON);
+    restartBtn.addEventListener('click', restart);
+    document.addEventListener('keydown', e => { if (e.key === 'Enter' && !summary.hidden) { e.preventDefault(); next(); } });
+
+    renderQuestion();
+  </script>
+</body>
+</html>
